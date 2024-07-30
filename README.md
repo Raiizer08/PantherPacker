@@ -60,7 +60,7 @@ License 📜
 This project is licensed under the MIT License. See the LICENSE file for more details.
 
 Contact 📧
-For questions or support, please email: pkto.riann@example.com
+For questions or support, please email: pkto.riann@gmail.com
 
 Found this project helpful? 🤗
 Consider supporting me on Discord or GitHub. 🌟 Discord : mayberaiizer or luminoxl
