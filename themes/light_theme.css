@@ -1,0 +1,28 @@
+/* Light Mode */
+QWidget {
+    background-color: #fff;
+    color: #333;
+}
+
+QMenuBar {
+    background-color: #eee;
+    color: #333;
+}
+
+QMenuBar::item {
+    background-color: #eee;
+    color: #333;
+}
+
+QMenuBar::item:selected {
+    background-color: #ccc;
+}
+
+QLabel {
+    color: #333;
+}
+
+QPushButton {
+    background-color: #ccc;
+    color: #333;
+}

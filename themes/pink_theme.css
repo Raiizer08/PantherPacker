@@ -1,0 +1,29 @@
+/* Pink Theme*/
+
+QWidget {
+    background-color: #fce4ec; /* Fond rose clair */
+    color: #8e3e51; /* Texte rose foncé */
+}
+
+QMenuBar {
+    background-color: #f8bbd0; /* Fond rose clair plus foncé */
+    color: #8e3e51;
+}
+
+QMenuBar::item {
+    background-color: #f8bbd0;
+    color: #8e3e51;
+}
+
+QMenuBar::item:selected {
+    background-color: #f48fb1; /* Rose plus saturé pour l'élément sélectionné */
+}
+
+QLabel {
+    color: #8e3e51;
+}
+
+QPushButton {
+    background-color: #f48fb1; /* Rose plus saturé pour les boutons */
+    color: #8e3e51;
+}
