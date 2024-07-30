@@ -1,5 +1,5 @@
-PacketWhisper 🕵️‍♂️🔍
-PacketWhisper is a Python-based tool designed to capture and analyze network packets. It provides essential insights for network security and performance optimization. With the integration of the ChatGPT API, it enhances packet analysis with advanced features and insights.
+PantherSniffer 🕵️‍♂️🐾
+PantherSniffer is a Python-based tool designed to capture and analyze network packets. It provides essential insights for network security and performance optimization. With the integration of the ChatGPT API, it enhances packet analysis with advanced features and insights.
 
 Features 🌟
 Real-Time Packet Capture: Monitor and capture network packets as they happen. ⏱️
