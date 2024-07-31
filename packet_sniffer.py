@@ -4,6 +4,7 @@ import pandas as pd
 from scapy.all import sniff, IP, TCP, UDP
 import json
 import xml.etree.ElementTree as ET
+from termcolor import colored
 
 packet_data = []
 
@@ -39,9 +40,9 @@ def packet_callback(packet):
 
         print(colored(packet_info, color))
 
-def start_sniffing(interface, count):
+def start_sniffing(interface):
     try:
-        sniff(iface=interface, prn=packet_callback, count=count)
+        sniff(iface=interface, prn=packet_callback)
     except Exception as e:
         print(f"Erreur: {e}")
 
