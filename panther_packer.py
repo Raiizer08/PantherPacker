@@ -1,5 +1,4 @@
 # This file is the PatnherPacker GUI, it uses packet_sniffer code to sniff
-
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QProgressBar, QWidget, QPushButton, QVBoxLayout, QLabel,
@@ -8,19 +7,68 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QDesktopServices, QColor
 from PyQt5.QtCore import QFile, QTextStream, QUrl, QTimer, QThread, pyqtSignal
 import psutil
-from packet_sniffer import packet_data, start_sniffing, save_data  # Import functions and variables
+from scapy.all import sniff, IP, TCP, UDP
+import xml.etree.ElementTree as ET
+import xml.dom.minidom
+import datetime
+
+class XMLPacketHandler:
+    def __init__(self, filename):
+        self.filename = filename
+        self.root = ET.Element("packet_capture")
+        self.tree = ET.ElementTree(self.root)
+
+    def packet_callback(self, packet):
+        if IP in packet:
+            packet_elem = ET.SubElement(self.root, "packet")
+            ET.SubElement(packet_elem, "timestamp").text = str(datetime.datetime.now())
+            ET.SubElement(packet_elem, "source_ip").text = packet[IP].src
+            ET.SubElement(packet_elem, "destination_ip").text = packet[IP].dst
+            
+            if TCP in packet:
+                ET.SubElement(packet_elem, "protocol").text = "TCP"
+                ET.SubElement(packet_elem, "source_port").text = str(packet[TCP].sport)
+                ET.SubElement(packet_elem, "destination_port").text = str(packet[TCP].dport)
+            elif UDP in packet:
+                ET.SubElement(packet_elem, "protocol").text = "UDP"
+                ET.SubElement(packet_elem, "source_port").text = str(packet[UDP].sport)
+                ET.SubElement(packet_elem, "destination_port").text = str(packet[UDP].dport)
+            else:
+                ET.SubElement(packet_elem, "protocol").text = "Other"
+
+            ET.SubElement(packet_elem, "length").text = str(len(packet))
+
+    def save_xml(self, filename=None):
+        if filename is None:
+            filename = self.filename
+        xml_str = ET.tostring(self.root, encoding="unicode")
+        dom = xml.dom.minidom.parseString(xml_str)
+        pretty_xml = dom.toprettyxml(indent="  ")
+        
+        with open(filename, "w") as f:
+            f.write(pretty_xml)
+
+    def convert_to_html(self, html_filename):
+        xslt = ET.parse("packet_to_html.xslt")
+        transform = ET.XSLT(xslt)
+        
+        html_tree = transform(self.tree)
+        
+        with open(html_filename, "wb") as f:
+            f.write(ET.tostring(html_tree, pretty_print=True))
 
 class SnifferThread(QThread):
     packet_captured = pyqtSignal(str, str, int, int, str)
 
-    def __init__(self, interface, parent=None):
+    def __init__(self, interface, xml_handler, parent=None):
         super().__init__(parent)
         self.interface = interface
+        self.xml_handler = xml_handler
         self.sniffing = True
 
     def run(self):
         try:
-            start_sniffing(self.interface)
+            sniff(iface=self.interface, prn=self.packet_callback, stop_filter=self.should_stop)
         except Exception as e:
             self.packet_captured.emit('Error', str(e), 0, 0, 'Error')
     
@@ -31,27 +79,27 @@ class SnifferThread(QThread):
         if IP in packet:
             protocol = packet[IP].proto
             if protocol == 6:
-                protocol_name == 'TCP'
-            if protocol == 17:
+                protocol_name = 'TCP'
+            elif protocol == 17:
                 protocol_name = 'UDP'
-            if protocol == 1:
+            elif protocol == 1:
                 protocol_name = 'ICMP'
             else:
                 protocol_name = 'OTHER'
 
             packet_info = {
                 'Source IP': packet[IP].src,
-                'Ip Destination': packet[IP].dst,
+                'Destination IP': packet[IP].dst,
                 'Source Port': packet.sport if packet.haslayer(TCP) or packet.haslayer(UDP) else None,
-                'Destination Port': packet.dport if packet.haslayer or packet.haslayer(UDP) else None,
+                'Destination Port': packet.dport if packet.haslayer(TCP) or packet.haslayer(UDP) else None,
                 'Protocol': protocol_name,
                 'Length': len(packet)
             }
 
-            packet_data.append(packet_info)
+            self.xml_handler.packet_callback(packet)
             self.packet_captured.emit(
-                packet_info['Source Ip'],
-                packet_info['Ip Destination'],
+                packet_info['Source IP'],
+                packet_info['Destination IP'],
                 packet_info['Source Port'],
                 packet_info['Destination Port'],
                 packet_info['Protocol'],
@@ -61,11 +109,8 @@ class SnifferThread(QThread):
         return not self.sniffing
     
     def stop_sniffing(self):
-            self.sniffing = False
-            self.quit()  # Exit the QThread loop
-            self.wait()  # Wait for the thread to finish
-            
-        
+        self.sniffing = False
+
 class MyApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -76,7 +121,6 @@ class MyApp(QWidget):
         self.setGeometry(100, 100, 800, 600)
         self.loadStyleSheet('dark_theme.css')
         self.createMenuBar()
-
         self.interface_combo = QComboBox(self)
         self.populate_interface_combo()
 
@@ -91,7 +135,6 @@ class MyApp(QWidget):
 
         self.stop_button = QPushButton('Stop The Panther')
         self.stop_button.clicked.connect(self.on_stop_button_click)
-
 
         self.table = QTableWidget(self)
         self.table.setColumnCount(5)
@@ -109,13 +152,39 @@ class MyApp(QWidget):
 
         self.apply_theme('dark_theme.css', True)
 
+        self.xml_handler = XMLPacketHandler("packet_capture.xml")
+
     def on_stop_button_click(self):
         if hasattr(self, 'sniffer_thread') and self.sniffer_thread.isRunning():
+            print("Stopping sniffer thread...")
             self.sniffer_thread.stop_sniffing()
+            self.sniffer_thread.wait()
             self.label.setText("Sniffer arrêté")
             self.progress_bar.setValue(100)
             self.timer.stop()
-    
+            self.ask_save_results()
+        else:
+            print("No sniffing thread is running.")
+            self.label.setText("Aucun sniffing en cours.")
+
+    def ask_save_results(self):
+        reply = QMessageBox.question(self, 'Save Results', 
+                                     "Do you want to save the sniffing results?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+        
+        if reply == QMessageBox.Yes:
+            self.save_results()
+
+    def save_results(self):
+        options = QFileDialog.Options()
+        fileName, _ = QFileDialog.getSaveFileName(self, "Save Sniffing Results", "", 
+                                                  "XML Files (*.xml);;All Files (*)", options=options)
+        if fileName:
+            if not fileName.endswith('.xml'):
+                fileName += '.xml'
+            self.xml_handler.save_xml(fileName)
+            QMessageBox.information(self, "Save Successful", f"Results saved to {fileName}")
+
     def loadStyleSheet(self, styleSheetFile):
         styleFile = QFile(styleSheetFile)
         if styleFile.open(QFile.ReadOnly | QFile.Text):
@@ -194,13 +263,6 @@ class MyApp(QWidget):
 
     def on_output_format_selected(self, format_name):
         self.label.setText(f"Output format selected: {format_name}")
-        self.save_sniffer_data(format_name)
-
-    def save_sniffer_data(self, format_name):
-        filename, _ = QFileDialog.getSaveFileName(self, 'Save File', '', f"{format_name} Files (*.{format_name.lower()})")
-        if filename:
-            save_data(filename, packet_data, format_name)
-            self.label.setText(f"Data saved as {filename}")
 
     def open_github(self):
         url = QUrl('https://github.com/Raiizer08')
@@ -218,7 +280,7 @@ class MyApp(QWidget):
     def start_sniffer_thread(self):
         selected_interface = self.interface_combo.currentText()
         if selected_interface:
-            self.sniffer_thread = SnifferThread(selected_interface)
+            self.sniffer_thread = SnifferThread(selected_interface, self.xml_handler)
             self.sniffer_thread.packet_captured.connect(self.add_packet_to_table)
             self.sniffer_thread.finished.connect(self.on_sniffer_finished)
             self.sniffer_thread.start()
@@ -230,39 +292,22 @@ class MyApp(QWidget):
         self.progress_bar.setValue(100)
         self.show_completion_message()
 
-    def add_packet_to_table(self, source_ip, dest_ip, source_port, dest_port, protocol):
+    def add_packet_to_table(self, src_ip, dst_ip, src_port, dst_port, protocol):
         row_position = self.table.rowCount()
         self.table.insertRow(row_position)
-    
-        source_ip_item = QTableWidgetItem(source_ip)
-        dest_ip_item = QTableWidgetItem(dest_ip)
-        source_port_item = QTableWidgetItem(str(source_port))
-        dest_port_item = QTableWidgetItem(str(dest_port))
+
+        self.table.setItem(row_position, 0, QTableWidgetItem(src_ip))
+        self.table.setItem(row_position, 1, QTableWidgetItem(dst_ip))
+        self.table.setItem(row_position, 2, QTableWidgetItem(str(src_port)))
+        self.table.setItem(row_position, 3, QTableWidgetItem(str(dst_port)))
+
         protocol_item = QTableWidgetItem(protocol)
-
-        if 'dark_theme' in self.styleSheet():
-            text_color = QColor(255, 255, 255)
-            background_color = QColor(43, 43, 43)
+        if protocol == 'TCP':
+            protocol_item.setForeground(QColor(0, 255, 0))  # Green for TCP
+        elif protocol == 'UDP':
+            protocol_item.setForeground(QColor(0, 0, 255))  # Blue for UDP
         else:
-            text_color = QColor(0, 0, 0)
-            background_color = QColor(255, 255, 255)
-
-        source_ip_item.setForeground(text_color)
-        dest_ip_item.setForeground(text_color)
-        source_port_item.setForeground(text_color)
-        dest_port_item.setForeground(text_color)
-        protocol_item.setForeground(text_color)
-
-        source_ip_item.setBackground(background_color)
-        dest_ip_item.setBackground(background_color)
-        source_port_item.setBackground(background_color)
-        dest_port_item.setBackground(background_color)
-        protocol_item.setBackground(background_color)
-
-        self.table.setItem(row_position, 0, source_ip_item)
-        self.table.setItem(row_position, 1, dest_ip_item)
-        self.table.setItem(row_position, 2, source_port_item)
-        self.table.setItem(row_position, 3, dest_port_item)
+            protocol_item.setForeground(QColor(255, 255, 0))  # Yellow for others
         self.table.setItem(row_position, 4, protocol_item)
 
     def update_table_colors(self, is_dark_theme):
@@ -272,27 +317,29 @@ class MyApp(QWidget):
                 item = self.table.item(row, column)
                 if item:
                     if is_dark_theme:
-                        item.setForeground(QColor(255, 255, 255))  # White text for dark theme
-                        item.setBackground(QColor(43, 43, 43))  # Dark background for dark theme
+                        item.setForeground(QColor(255, 255, 255))  
+                        item.setBackground(QColor(43, 43, 43))  
                     else:
-                        item.setForeground(QColor(0, 0, 0))  # Black text for light theme
-                        item.setBackground(QColor(255, 255, 255))  # White background for light theme
+                        item.setForeground(QColor(0, 0, 0))  
+                        item.setBackground(QColor(255, 255, 255))  
 
-        # Mise à jour des en-têtes
+        # Update headers
         for col in range(self.table.columnCount()):
             item = self.table.horizontalHeaderItem(col)
             if item:
                 if is_dark_theme:
-                    item.setForeground(QColor(255, 255, 255))
-                    item.setBackground(QColor(43, 43, 43))
+                    item.setForeground(QColor(0, 0, 0))  
+                    item.setBackground(QColor(43, 43, 43))  
                 else:
                     item.setForeground(QColor(0, 0, 0))
-                    item.setBackground(QColor(255, 255, 255))
 
     def update_progress(self):
         current_value = self.progress_bar.value()
         if current_value < 100:
             self.progress_bar.setValue(current_value + 1)
+        else:
+            self.timer.stop()
+            self.on_stop_button_click()
 
     def show_completion_message(self):
         msg = QMessageBox()
