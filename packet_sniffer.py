@@ -1,4 +1,4 @@
-# Ce fichier définit les fonctions pour la capture des paquets et la sauvegarde des données
+# This file defines the packet capture and data backup functions
 
 import pandas as pd
 from scapy.all import sniff, IP, TCP, UDP
