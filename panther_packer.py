@@ -290,7 +290,7 @@ class MyApp(QWidget):
     def on_sniffer_finished(self):
         self.timer.stop()
         self.progress_bar.setValue(100)
-        self.show_completion_message()
+        self.want_to_save_message
 
     def add_packet_to_table(self, src_ip, dst_ip, src_port, dst_port, protocol):
         row_position = self.table.rowCount()
@@ -341,11 +341,20 @@ class MyApp(QWidget):
             self.timer.stop()
             self.on_stop_button_click()
 
+    def want_to_save_message(self):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Alert)
+        msg.setText("Want to save that ?")
+        msg.setInformativeText("The Sniffing is finish, want to save the capture ?")
+        msg.setWindowTitle("Reminder")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
+
     def show_completion_message(self):
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Information)
-        msg.setText("Sniffing terminé!")
-        msg.setInformativeText("Le sniffing des paquets est terminé.")
+        msg.setText("Sniffing Over !")
+        msg.setInformativeText("The Sniffing is over")
         msg.setWindowTitle("Information")
         msg.setStandardButtons(QMessageBox.Ok)
         msg.exec_()
