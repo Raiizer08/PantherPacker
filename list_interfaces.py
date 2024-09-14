@@ -23,3 +23,4 @@ if __name__ == "__main__":
         start_sniffing(interface=interface, count=10)
     else:
         print("Aucune interface réseau valide trouvée.")
+
