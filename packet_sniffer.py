@@ -1,4 +1,4 @@
-# This file defines the packet capture and data backup functions
+# This file defines functions for packet capture and data saving
 
 import pandas as pd
 from scapy.all import sniff, IP, TCP, UDP
@@ -17,6 +17,10 @@ def packet_callback(packet):
             protocol_name = 'UDP'
         elif protocol == 1:
             protocol_name = 'ICMP'
+        elif protocol == 80:
+            protocol_name = 'HTTP'
+        elif protocol == 0x0806:
+            protocol_name = 'ARP'
         else:
             protocol_name = 'OTHER'
 
