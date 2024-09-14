@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QIcon, QDesktopServices, QColor
 from PyQt5.QtCore import QFile, QTextStream, QUrl, QTimer, QThread, pyqtSignal
 import psutil
-from scapy.all import sniff, IP, TCP, UDP
+from scapy.all import sniff, IP, TCP, UDP, Raw
 import xml.etree.ElementTree as ET
 import xml.dom.minidom
 import datetime
@@ -33,6 +33,14 @@ class XMLPacketHandler:
                 ET.SubElement(packet_elem, "protocol").text = "UDP"
                 ET.SubElement(packet_elem, "source_port").text = str(packet[UDP].sport)
                 ET.SubElement(packet_elem, "destination_port").text = str(packet[UDP].dport)
+            elif packet.haslayer(Raw) and b'HTTP' in packet[Raw].load:
+                ET.SubElement(packet_elem, "protocol").text = "HTTP"
+            elif packet.haslayer(Raw) and b'HTTP' in packet[Raw].load:
+                ET.SubElement(packet_elem, "protocol").text = "HTTP"
+            if TCP in packet:
+                ET.SubElement(packet_elem, "source_port").text = str(packet[TCP].sport)
+                ET.SubElement(packet_elem, "destination_port").text = str(packet[TCP].dport)
+
             else:
                 ET.SubElement(packet_elem, "protocol").text = "Other"
 
@@ -119,7 +127,7 @@ class MyApp(QWidget):
     def initUI(self):
         self.setWindowTitle("PacketWhisper")
         self.setGeometry(100, 100, 800, 600)
-        self.loadStyleSheet('dark_theme.css')
+        self.loadStyleSheet('chill_theme.css')
         self.createMenuBar()
         self.interface_combo = QComboBox(self)
         self.populate_interface_combo()
@@ -221,9 +229,17 @@ class MyApp(QWidget):
         darkThemeAction.triggered.connect(lambda: self.apply_theme('dark_theme.css', True))
         appearanceMenu.addAction(darkThemeAction)
 
+        hackerThemeAction = QAction('Hacker Theme', self)
+        hackerThemeAction.triggered.connect(lambda: self.apply_theme('hacker_theme.css', False))
+        appearanceMenu.addAction(hackerThemeAction)
+
         lightThemeAction = QAction('Light Theme', self)
         lightThemeAction.triggered.connect(lambda: self.apply_theme('light_theme.css', False))
         appearanceMenu.addAction(lightThemeAction)
+
+        chillThemeAction = QAction('Chill Theme', self)
+        chillThemeAction.triggered.connect(lambda: self.apply_theme('chill_theme.css', False))      
+        appearanceMenu.addAction(chillThemeAction)
 
         pinkThemeAction = QAction('Pink Theme', self)
         pinkThemeAction.triggered.connect(lambda: self.apply_theme('pink_theme.css', False))
