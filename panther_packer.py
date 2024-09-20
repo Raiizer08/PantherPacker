@@ -35,8 +35,6 @@ class XMLPacketHandler:
                 ET.SubElement(packet_elem, "destination_port").text = str(packet[UDP].dport)
             elif packet.haslayer(Raw) and b'HTTP' in packet[Raw].load:
                 ET.SubElement(packet_elem, "protocol").text = "HTTP"
-            elif packet.haslayer(Raw) and b'HTTP' in packet[Raw].load:
-                ET.SubElement(packet_elem, "protocol").text = "HTTP"
             if TCP in packet:
                 ET.SubElement(packet_elem, "source_port").text = str(packet[TCP].sport)
                 ET.SubElement(packet_elem, "destination_port").text = str(packet[TCP].dport)
@@ -48,6 +46,7 @@ class XMLPacketHandler:
 
     def save_xml(self, filename=None):
         if filename is None:
+            filename = self.filename
             filename = self.filename
         xml_str = ET.tostring(self.root, encoding="unicode")
         dom = xml.dom.minidom.parseString(xml_str)
